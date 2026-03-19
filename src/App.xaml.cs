@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.IO;
 using System.Text;
 using BatteryTracker.Activation;
 using BatteryTracker.Contracts.Services;
@@ -98,7 +99,17 @@ public sealed partial class App : Application
         GetService<IAppNotificationService>().Initialize();
 
         // Tell the logging service to use Serilog.File extension.
-        string fullPath = $"{ApplicationData.Current.LocalFolder.Path}\\Logs\\App.log";
+        string fullPath;
+        if (RuntimeHelper.IsMSIX)
+        {
+            fullPath = $"{ApplicationData.Current.LocalFolder.Path}\\Logs\\App.log";
+        }
+        else
+        {
+            string baseDir = Path.Combine(AppContext.BaseDirectory, "Logs");
+            fullPath = Path.Combine(baseDir, "App.log");
+        }
+        Directory.CreateDirectory(Path.GetDirectoryName(fullPath)!);
         GetService<ILoggerFactory>().AddFile(fullPath);
         _logger = GetService<ILogger<App>>();
 

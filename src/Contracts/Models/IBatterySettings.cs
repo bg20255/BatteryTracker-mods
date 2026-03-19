@@ -14,5 +14,9 @@
         bool HighPowerNotificationEnabled { get; set; }
 
         int HighPowerNotificationThreshold { get; set; }
+
+        bool DischargeReminderEnabled { get; set; }
+
+        int DischargeReminderIntervalMinutes { get; set; }
     }
 }

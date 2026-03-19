@@ -1,4 +1,5 @@
-﻿using BatteryTracker.Helpers;
+using System.IO;
+using BatteryTracker.Helpers;
 using BatteryTracker.ViewModels;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
@@ -23,6 +24,15 @@ public sealed partial class ShellPage : Page
         App.MainWindow.SetTitleBar(AppTitleBar);
         App.MainWindow.Activated += MainWindow_Activated;
         AppTitleBarText.Text = "AppDisplayName".Localized();
+
+        if (!RuntimeHelper.IsMSIX)
+        {
+            string iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "logo.ico");
+            if (File.Exists(iconPath))
+            {
+                AppTitleBarIcon.UriSource = new Uri(iconPath);
+            }
+        }
     }
 
     private async void OnLoaded(object _, RoutedEventArgs _1)
@@ -56,3 +66,4 @@ public sealed partial class ShellPage : Page
         };
     }
 }
+

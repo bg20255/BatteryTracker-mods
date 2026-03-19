@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+using System.IO;
+using System.Reflection;
 using System.Windows.Input;
 using BatteryTracker.Helpers;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -65,7 +66,17 @@ namespace BatteryTracker.ViewModels
 
             OpenLogFolderCommand = new AsyncRelayCommand(async () =>
             {
-                await Launcher.LaunchFolderAsync(ApplicationData.Current.LocalFolder);
+                if (RuntimeHelper.IsMSIX)
+                {
+                    await Launcher.LaunchFolderAsync(ApplicationData.Current.LocalFolder);
+                }
+                else
+                {
+                    string logDir = Path.Combine(AppContext.BaseDirectory, "Logs");
+                    Directory.CreateDirectory(logDir);
+                    StorageFolder folder = await StorageFolder.GetFolderFromPathAsync(logDir);
+                    await Launcher.LaunchFolderAsync(folder);
+                }
             });
 
             OpenGitHubRepoCommand = new AsyncRelayCommand(async () =>
@@ -95,7 +106,10 @@ namespace BatteryTracker.ViewModels
                 version = Assembly.GetExecutingAssembly().GetName().Version!;
             }
 
-            return $"v{version.Major}.{version.Minor}.{version.Build}.{version.Revision}";
+            string suffix = RuntimeHelper.IsMSIX ? string.Empty : "-unpacked-mod";
+            return $"v{version.Major}.{version.Minor}.{version.Build}.{version.Revision}{suffix}";
         }
     }
 }
+
+

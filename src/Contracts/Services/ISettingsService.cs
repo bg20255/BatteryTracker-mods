@@ -13,5 +13,7 @@ namespace BatteryTracker.Contracts.Services
         AppLanguageItem Language { get; set; }
 
         bool RunAtStartup { get; set; }
+
+        int DischargeReminderSnoozeMinutes { get; set; }
     }
 }

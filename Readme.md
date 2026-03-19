@@ -4,6 +4,15 @@
 </a>
 
 Show remaining battery percentage on Windows taskbar.
+
+## Modifications (unpacked + modernized)
+- **Packaged and unpackaged coexistence:** Local `Logs/` and `Config/` folders beside the EXE plus runtime detection keep both modes runnable; the Windows App Runtime is optional outside the Store.  
+- **Persistent discharge reminder:** A 10-second timer wakes while unplugged, fires a toast at your configured minute interval with “I know” and “Snooze” buttons (Snooze carries five dropdown presets that persist), and doesn’t restart the countdown until you acknowledge it; the timer stops completely when you plug in to avoid extra wake-ups. This reminder encourages keeping the laptop plugged in to slow battery degradation and extend lifespan.  
+- **Respectful notifier behavior:** Charging stops the timer entirely to avoid needless polling, and acknowledging the reminder is the only way to reset the wait state.  
+- **Navigation cleanup:** Settings/About behave like tabs, clearing the back stack when switching—only About leaves a single history entry so the back arrow lights up.  
+- **Title bar polish & startup control:** In unpackaged runs we load `Assets/logo.ico` for the custom title bar icon, and auto-start defaults to **off** so users opt in intentionally.
+
+<img style="width:60%;" src=Assets/showcase5.png />
 <table>
 	<tr>
 		<td><img src=Assets/showcase2.png border=0></td>

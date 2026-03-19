@@ -85,6 +85,50 @@
                         </labs:SettingsCard>
                     </labs:SettingsExpander.Items>
                 </labs:SettingsExpander>
+
+                <!--  Discharge reminder  -->
+                <labs:SettingsExpander
+                    Header="启用未充电提醒"
+                    HeaderIcon="{ui:FontIcon FontFamily={StaticResource SymbolThemeFontFamily}, Glyph=&#xEA8F;}"
+                    IsExpanded="{x:Bind ViewModel.DischargeReminderEnabled, Mode=OneWay}">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.DischargeReminderEnabled, Mode=TwoWay}" />
+                    <labs:SettingsExpander.Items>
+                        <labs:SettingsCard Header="提醒间隔（分钟）" IsEnabled="{x:Bind ViewModel.DischargeReminderEnabled, Mode=OneWay}">
+                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                                <Slider
+                                    x:Name="DischargeReminderIntervalSlider"
+                                    Width="250" MinWidth="100" MaxWidth="400"
+                                    Minimum="1" Maximum="60" TickFrequency="5" TickPlacement="BottomRight"
+                                    Value="{x:Bind ViewModel.DischargeReminderIntervalMinutes, Mode=TwoWay}" />
+                                <TextBlock
+                                    Width="35"
+                                    Margin="10 0 0 0" VerticalAlignment="Center"
+                                    Text="{Binding ElementName=DischargeReminderIntervalSlider, Path=Value}"
+                                    TextAlignment="Center" />
+                                <TextBlock
+                                    Margin="2 0 0 0" VerticalAlignment="Center"
+                                    Text="分钟" />
+                            </StackPanel>
+                        </labs:SettingsCard>
+                        <labs:SettingsCard Header="延后提醒（分钟）" IsEnabled="{x:Bind ViewModel.DischargeReminderEnabled, Mode=OneWay}">
+                            <StackPanel VerticalAlignment="Center" Orientation="Horizontal">
+                                <Slider
+                                    x:Name="DischargeReminderSnoozeSlider"
+                                    Width="250" MinWidth="100" MaxWidth="400"
+                                    Minimum="5" Maximum="180" TickFrequency="5" TickPlacement="BottomRight"
+                                    Value="{x:Bind ViewModel.DischargeReminderSnoozeMinutes, Mode=TwoWay}" />
+                                <TextBlock
+                                    Width="35"
+                                    Margin="10 0 0 0" VerticalAlignment="Center"
+                                    Text="{Binding ElementName=DischargeReminderSnoozeSlider, Path=Value}"
+                                    TextAlignment="Center" />
+                                <TextBlock
+                                    Margin="2 0 0 0" VerticalAlignment="Center"
+                                    Text="分钟" />
+                            </StackPanel>
+                        </labs:SettingsCard>
+                    </labs:SettingsExpander.Items>
+                </labs:SettingsExpander>
             </controls:SettingsGroup>
 
             <!--  Appearance and behavior  -->

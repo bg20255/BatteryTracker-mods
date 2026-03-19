@@ -11,6 +11,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Windows.AppLifecycle;
+using Microsoft.UI.Xaml;
 using Windows.Globalization;
 using Windows.System.UserProfile;
 
@@ -119,7 +120,42 @@ public sealed class SettingsViewModel : ObservableRecipient, IBatterySettings
         }
     }
 
-    private AppLanguageItem _language;
+    private bool _dischargeReminderEnabled;
+    public bool DischargeReminderEnabled
+    {
+        get => _dischargeReminderEnabled;
+        set
+        {
+            SetProperty(ref _dischargeReminderEnabled, value);
+            _batteryIcon.Settings.DischargeReminderEnabled = value;
+            _settingsService.DischargeReminderEnabled = value;
+        }
+    }
+
+    private int _dischargeReminderIntervalMinutes;
+    public int DischargeReminderIntervalMinutes
+    {
+        get => _dischargeReminderIntervalMinutes;
+        set
+        {
+            SetProperty(ref _dischargeReminderIntervalMinutes, value);
+            _batteryIcon.Settings.DischargeReminderIntervalMinutes = value;
+            _settingsService.DischargeReminderIntervalMinutes = value;
+        }
+    }
+
+    private int _dischargeReminderSnoozeMinutes;
+    public int DischargeReminderSnoozeMinutes
+    {
+        get => _dischargeReminderSnoozeMinutes;
+        set
+        {
+            SetProperty(ref _dischargeReminderSnoozeMinutes, value);
+            _settingsService.DischargeReminderSnoozeMinutes = value;
+        }
+    }
+
+    private AppLanguageItem _language = null!;
 
     public AppLanguageItem Language
     {
@@ -153,27 +189,20 @@ public sealed class SettingsViewModel : ObservableRecipient, IBatterySettings
             SetProperty(ref _runAtStartup, value);
             Task.Run(async () =>
             {
-                bool isRunAtStartup = await StartupHelper.IsRunAtStartup();
-                bool needChange = value != isRunAtStartup;
-                if (needChange)
-                {
-                    bool success = value switch
-                    {
-                        true => await StartupHelper.EnableStartup(),
-                        false => await StartupHelper.DisableStartup()
-                    };
+                bool success = value
+                    ? await StartupHelper.EnableStartup()
+                    : await StartupHelper.DisableStartup();
 
-                    if (success)
-                    {
-                        _logger.LogInformation("Set running at startup to: {runAtStartupValue}", value);
-                        _settingsService.RunAtStartup = value;
-                    }
-                    else
-                    {
-                        // Log and revert the change
-                        _logger.LogError("Setting running at startup failed.");
-                        SetProperty(ref _runAtStartup, !value);
-                    }
+                if (success)
+                {
+                    _logger.LogInformation("Set running at startup to: {runAtStartupValue}", value);
+                    _settingsService.RunAtStartup = value;
+                }
+                else
+                {
+                    // Log and revert the change
+                    _logger.LogError("Setting running at startup failed.");
+                    SetProperty(ref _runAtStartup, !value);
                 }
             });
         }
@@ -198,7 +227,6 @@ public sealed class SettingsViewModel : ObservableRecipient, IBatterySettings
     private readonly ILogger<SettingsViewModel> _logger;
     private readonly IThemeSelectorService _themeService;
     private readonly ISettingsService _settingsService;
-
     #endregion
 
     public SettingsViewModel(BatteryIcon icon, IThemeSelectorService themeSelectorService,
@@ -209,7 +237,6 @@ public sealed class SettingsViewModel : ObservableRecipient, IBatterySettings
         _themeService = themeSelectorService;
         _logger = logger;
         _settingsService = settingsService;
-
         _appTheme = _themeService.Theme;
 
         RestartCommand = new RelayCommand(() =>
@@ -262,6 +289,16 @@ public sealed class SettingsViewModel : ObservableRecipient, IBatterySettings
         _lowPowerNotificationThreshold = _settingsService.LowPowerNotificationThreshold;
         _highPowerNotificationEnabled = _settingsService.HighPowerNotificationEnabled;
         _highPowerNotificationThreshold = _settingsService.HighPowerNotificationThreshold;
+        _dischargeReminderEnabled = _settingsService.DischargeReminderEnabled;
+        _dischargeReminderIntervalMinutes = _settingsService.DischargeReminderIntervalMinutes;
+        _dischargeReminderSnoozeMinutes = _settingsService.DischargeReminderSnoozeMinutes;
+        _batteryIcon.Settings.FullyChargedNotificationEnabled = _fullyChargedNotificationEnabled;
+        _batteryIcon.Settings.LowPowerNotificationEnabled = _lowPowerNotificationEnabled;
+        _batteryIcon.Settings.LowPowerNotificationThreshold = _lowPowerNotificationThreshold;
+        _batteryIcon.Settings.HighPowerNotificationEnabled = _highPowerNotificationEnabled;
+        _batteryIcon.Settings.HighPowerNotificationThreshold = _highPowerNotificationThreshold;
+        _batteryIcon.Settings.DischargeReminderEnabled = _dischargeReminderEnabled;
+        _batteryIcon.Settings.DischargeReminderIntervalMinutes = _dischargeReminderIntervalMinutes;
         _runAtStartup = _settingsService.RunAtStartup;
         Language = Languages.FirstOrDefault(l => l.LanguageId == _settingsService.Language.LanguageId)
                    ?? Languages[0];

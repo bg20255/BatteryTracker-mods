@@ -51,7 +51,7 @@ public sealed class NavigationViewService(INavigationService navigationService, 
     {
         if (args.IsSettingsInvoked)
         {
-            navigationService.NavigateTo(typeof(SettingsViewModel).FullName!);
+            navigationService.NavigateTo(typeof(SettingsViewModel).FullName!, clearNavigation: true);
         }
         else
         {
@@ -59,7 +59,15 @@ public sealed class NavigationViewService(INavigationService navigationService, 
 
             if (selectedItem?.GetValue(NavigationHelper.NavigateToProperty) is string pageKey)
             {
-                navigationService.NavigateTo(pageKey);
+                if (pageKey == typeof(AboutViewModel).FullName)
+                {
+                    navigationService.Frame?.BackStack.Clear();
+                    navigationService.NavigateTo(pageKey);
+                }
+                else
+                {
+                    navigationService.NavigateTo(pageKey, clearNavigation: true);
+                }
             }
         }
     }

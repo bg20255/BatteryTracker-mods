@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading;
 using BatteryTracker.Contracts.Models;
 using BatteryTracker.Contracts.Services;
 using BatteryTracker.Helpers;
@@ -25,6 +26,30 @@ public partial class BatteryIcon : IDisposable
         public bool HighPowerNotificationEnabled { get; set; }
 
         public bool FullyChargedNotificationEnabled { get; set; }
+
+        private bool _dischargeReminderEnabled;
+        public bool DischargeReminderEnabled
+        {
+            get => _dischargeReminderEnabled;
+            set
+            {
+                _dischargeReminderEnabled = value;
+                batteryIcon.ResetDischargeReminderTimer();
+                batteryIcon.UpdateDischargeReminderTimer();
+            }
+        }
+
+        private int _dischargeReminderIntervalMinutes;
+        public int DischargeReminderIntervalMinutes
+        {
+            get => _dischargeReminderIntervalMinutes;
+            set
+            {
+                _dischargeReminderIntervalMinutes = value;
+                batteryIcon.ResetDischargeReminderTimer();
+                batteryIcon.UpdateDischargeReminderTimer();
+            }
+        }
 
         private int _lowPowerNotificationThreshold;
         public int LowPowerNotificationThreshold
@@ -106,6 +131,7 @@ public partial class BatteryIcon : IDisposable
 
     private static readonly Brush White = new SolidColorBrush(Color.FromArgb(255, 255, 255, 255));
     private static readonly Brush Black = new SolidColorBrush(Color.FromArgb(255, 0, 0, 0));
+    private static readonly TimeSpan DischargeReminderPollInterval = TimeSpan.FromSeconds(10);
 
     private TaskbarIcon? _trayIcon;
     private GeneratedIconSource? _iconSource;
@@ -115,10 +141,14 @@ public partial class BatteryIcon : IDisposable
 
     private bool _isLowPower;
     private bool _isHighPower;
+    private DateTime _lastDischargeReminderUtc = DateTime.MinValue;
+    private DateTime? _nextDischargeReminderUtc;
+    private bool _dischargeReminderAwaitingAck;
 
     private bool _trayIconEventsRegistered;
 
     private DispatcherQueue? _dispatcherQueue;
+    private Timer? _dischargeReminderTimer;
 
     #endregion
 
@@ -144,6 +174,9 @@ public partial class BatteryIcon : IDisposable
         RegisterTrayIconEvents();
         // register display events
         PowerManager.DisplayStatusChanged += PowerManager_DisplayStatusChanged;
+
+        _dischargeReminderTimer = new Timer(_ => CheckDischargeReminder(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+        UpdateDischargeReminderTimer();
     }
 
     ~BatteryIcon()
@@ -156,9 +189,142 @@ public partial class BatteryIcon : IDisposable
         UnregisterTrayIconEvents();
         PowerManager.DisplayStatusChanged -= PowerManager_DisplayStatusChanged;
 
+        _dischargeReminderTimer?.Dispose();
         _trayIcon?.Dispose();
 
         GC.SuppressFinalize(this);
+    }
+
+    private void ResetDischargeReminderTimer()
+    {
+        _lastDischargeReminderUtc = DateTime.UtcNow;
+        _nextDischargeReminderUtc = null;
+        _dischargeReminderAwaitingAck = false;
+    }
+
+    private void UpdateDischargeReminderTimer()
+    {
+        if (_dischargeReminderTimer == null)
+        {
+            return;
+        }
+
+        if (!Settings.DischargeReminderEnabled)
+        {
+            _nextDischargeReminderUtc = null;
+            _dischargeReminderAwaitingAck = false;
+            _dischargeReminderTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            return;
+        }
+
+        int minutes = Settings.DischargeReminderIntervalMinutes;
+        if (minutes <= 0)
+        {
+            _nextDischargeReminderUtc = null;
+            _dischargeReminderAwaitingAck = false;
+            _dischargeReminderTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            return;
+        }
+
+        if (PowerManager.BatteryStatus != BatteryStatus.Discharging)
+        {
+            _nextDischargeReminderUtc = null;
+            _dischargeReminderAwaitingAck = false;
+            _dischargeReminderTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            return;
+        }
+
+        _dischargeReminderTimer.Change(DischargeReminderPollInterval, DischargeReminderPollInterval);
+
+        if (PowerManager.BatteryStatus == BatteryStatus.Discharging && _nextDischargeReminderUtc == null)
+        {
+            _nextDischargeReminderUtc = DateTime.UtcNow.AddMinutes(minutes);
+        }
+    }
+
+    private void CheckDischargeReminder()
+    {
+        if (!Settings.DischargeReminderEnabled)
+        {
+            _nextDischargeReminderUtc = null;
+            return;
+        }
+
+        int minutes = Settings.DischargeReminderIntervalMinutes;
+        if (minutes <= 0)
+        {
+            return;
+        }
+
+        if (PowerManager.BatteryStatus != BatteryStatus.Discharging)
+        {
+            _nextDischargeReminderUtc = null;
+            _dischargeReminderAwaitingAck = false;
+            _dischargeReminderTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            return;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        TimeSpan interval = TimeSpan.FromMinutes(minutes);
+        if (_dischargeReminderAwaitingAck)
+        {
+            return;
+        }
+
+        _nextDischargeReminderUtc ??= now + interval;
+        if (now >= _nextDischargeReminderUtc.Value)
+        {
+            _lastDischargeReminderUtc = now;
+            _nextDischargeReminderUtc = null;
+            _dischargeReminderAwaitingAck = true;
+            _notificationService.ShowDischargeReminder("电池正在放电，请考虑接通电源。");
+        }
+    }
+
+    public void SnoozeDischargeReminder(int minutes)
+    {
+        if (!Settings.DischargeReminderEnabled || minutes <= 0)
+        {
+            return;
+        }
+
+        if (PowerManager.BatteryStatus != BatteryStatus.Discharging)
+        {
+            return;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        _lastDischargeReminderUtc = now;
+        _nextDischargeReminderUtc = now.AddMinutes(minutes);
+        _dischargeReminderAwaitingAck = false;
+        UpdateDischargeReminderTimer();
+    }
+
+    public void AcknowledgeDischargeReminder()
+    {
+        if (!Settings.DischargeReminderEnabled)
+        {
+            return;
+        }
+
+        if (PowerManager.BatteryStatus != BatteryStatus.Discharging)
+        {
+            _nextDischargeReminderUtc = null;
+            _dischargeReminderAwaitingAck = false;
+            return;
+        }
+
+        int minutes = Settings.DischargeReminderIntervalMinutes;
+        if (minutes <= 0)
+        {
+            return;
+        }
+
+        DateTime now = DateTime.UtcNow;
+        _lastDischargeReminderUtc = now;
+        _nextDischargeReminderUtc = now.AddMinutes(minutes);
+        _dischargeReminderAwaitingAck = false;
+        UpdateDischargeReminderTimer();
     }
 
     public async Task AdaptToDpiChange(double rastScale)
@@ -258,6 +424,10 @@ public partial class BatteryIcon : IDisposable
         {
             _notificationService.Show($"{"FullyChargedMessage".Localized()}⚡");
         }
+
+        // refresh reminder schedule when power status changes
+        UpdateDischargeReminderTimer();
+
     }
 
     private void UpdateTrayIconPercent() => ChargedPercent = PowerManager.RemainingChargePercent;

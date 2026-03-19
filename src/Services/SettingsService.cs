@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using BatteryTracker.Contracts.Services;
+using BatteryTracker.Helpers;
 using BatteryTracker.Models;
 using Microsoft.Extensions.Logging;
 using Windows.Globalization;
@@ -18,6 +19,9 @@ internal sealed class SettingsService : BaseJsonSettingsService, ISettingsServic
     private const string LowPowerNotificationThresholdSettingsKey = "LowPowerNotificationThreshold";
     private const string EnableHighPowerNotificationSettingsKey = "EnableHighPowerNotification";
     private const string HighPowerNotificationThresholdSettingsKey = "HighPowerNotificationThreshold";
+    private const string EnableDischargeReminderSettingsKey = "EnableDischargeReminder";
+    private const string DischargeReminderIntervalSettingsKey = "DischargeReminderIntervalMinutes";
+    private const string DischargeReminderSnoozeMinutesSettingsKey = "DischargeReminderSnoozeMinutes";
     private const string ThemeSettingsKey = "AppBackgroundRequestedTheme";
     private const string RunAtStartupSettingsKey = "Autostart";
     private const string LanguageSettingsKey = "language";
@@ -31,15 +35,18 @@ internal sealed class SettingsService : BaseJsonSettingsService, ISettingsServic
     private const int LowPowerNotificationThresholdDefault = 25;
     private const bool EnableHighPowerNotificationDefault = true;
     private const int HighPowerNotificationThresholdDefault = 80;
+    private const bool EnableDischargeReminderDefault = true;
+    private const int DischargeReminderIntervalDefault = 5;
+    private const int DischargeReminderSnoozeMinutesDefault = 30;
     private const ElementTheme ThemeDefault = ElementTheme.Default;
-    private const bool RunAtStartupDefault = true;
+    private const bool RunAtStartupDefault = false;
     private readonly AppLanguageItem _languageDefault;
 
     #endregion
 
     #region Setting Values
 
-    public IList<AppLanguageItem> Languages { get; private set; }
+    public IList<AppLanguageItem> Languages { get; private set; } = new List<AppLanguageItem>();
 
     private bool _fullyChargedNotificationEnabled;
     public bool FullyChargedNotificationEnabled
@@ -96,6 +103,39 @@ internal sealed class SettingsService : BaseJsonSettingsService, ISettingsServic
         }
     }
 
+    private bool _dischargeReminderEnabled;
+    public bool DischargeReminderEnabled
+    {
+        get => _dischargeReminderEnabled;
+        set
+        {
+            _dischargeReminderEnabled = value;
+            Set(EnableDischargeReminderSettingsKey, value);
+        }
+    }
+
+    private int _dischargeReminderIntervalMinutes;
+    public int DischargeReminderIntervalMinutes
+    {
+        get => _dischargeReminderIntervalMinutes;
+        set
+        {
+            _dischargeReminderIntervalMinutes = value;
+            Set(DischargeReminderIntervalSettingsKey, value);
+        }
+    }
+
+    private int _dischargeReminderSnoozeMinutes;
+    public int DischargeReminderSnoozeMinutes
+    {
+        get => _dischargeReminderSnoozeMinutes;
+        set
+        {
+            _dischargeReminderSnoozeMinutes = value;
+            Set(DischargeReminderSnoozeMinutesSettingsKey, value);
+        }
+    }
+
     private ElementTheme _theme;
     public ElementTheme Theme
     {
@@ -107,7 +147,7 @@ internal sealed class SettingsService : BaseJsonSettingsService, ISettingsServic
         }
     }
 
-    private AppLanguageItem _language;
+    private AppLanguageItem _language = null!;
     public AppLanguageItem Language
     {
         get => _language;
@@ -163,12 +203,31 @@ internal sealed class SettingsService : BaseJsonSettingsService, ISettingsServic
 
     private void AddSupportedAppLanguages()
     {
-        Languages = ApplicationLanguages.ManifestLanguages
-            .Append(string.Empty) // Add default language id
-            .Select(language => new AppLanguageItem(language))
-            .OrderBy(language => language.LanguageId is not "") // Default language on top
+        if (RuntimeHelper.IsMSIX)
+        {
+            Languages = ApplicationLanguages.ManifestLanguages
+                .Append(string.Empty) // Add default language id
+                .Select(language => new AppLanguageItem(language))
+                .OrderBy(language => language.LanguageId is not "") // Default language on top
+                .ThenBy(language => language.LanguageName)
+                .ToList();
+        }
+        else
+        {
+            // Unpackaged apps don't have a manifest languages list.
+            // Fall back to current UI culture plus "default".
+            var current = System.Globalization.CultureInfo.CurrentUICulture.Name;
+            Languages = new List<AppLanguageItem>
+            {
+                new(string.Empty),
+                new(current)
+            }
+            .GroupBy(l => l.LanguageId)
+            .Select(g => g.First())
+            .OrderBy(language => language.LanguageId is not "")
             .ThenBy(language => language.LanguageName)
             .ToList();
+        }
     }
 
     private void LoadSettingValues()
@@ -183,6 +242,12 @@ internal sealed class SettingsService : BaseJsonSettingsService, ISettingsServic
             Get(EnableHighPowerNotificationSettingsKey, EnableHighPowerNotificationDefault);
         _highPowerNotificationThreshold =
             Get(HighPowerNotificationThresholdSettingsKey, HighPowerNotificationThresholdDefault);
+        _dischargeReminderEnabled =
+            Get(EnableDischargeReminderSettingsKey, EnableDischargeReminderDefault);
+        _dischargeReminderIntervalMinutes =
+            Get(DischargeReminderIntervalSettingsKey, DischargeReminderIntervalDefault);
+        _dischargeReminderSnoozeMinutes =
+            Get(DischargeReminderSnoozeMinutesSettingsKey, DischargeReminderSnoozeMinutesDefault);
         _theme = Get(ThemeSettingsKey, ThemeDefault);
         _runAtStartup = Get(RunAtStartupSettingsKey, RunAtStartupDefault);
         _language = Get(LanguageSettingsKey, _languageDefault)!;
@@ -207,6 +272,12 @@ internal sealed class SettingsService : BaseJsonSettingsService, ISettingsServic
         LowPowerNotificationThreshold = value != null ? (int)value : LowPowerNotificationThresholdDefault;
         value = StorageGetRawValue(HighPowerNotificationThresholdSettingsKey);
         HighPowerNotificationThreshold = value != null ? (int)value : HighPowerNotificationThresholdDefault;
+        value = StorageGetRawValue(EnableDischargeReminderSettingsKey);
+        DischargeReminderEnabled = value != null ? (bool)value : EnableDischargeReminderDefault;
+        value = StorageGetRawValue(DischargeReminderIntervalSettingsKey);
+        DischargeReminderIntervalMinutes = value != null ? (int)value : DischargeReminderIntervalDefault;
+        value = StorageGetRawValue(DischargeReminderSnoozeMinutesSettingsKey);
+        DischargeReminderSnoozeMinutes = value != null ? (int)value : DischargeReminderSnoozeMinutesDefault;
         value = StorageGetRawValue(ThemeSettingsKey);
         Theme = value != null ? Enum.Parse<ElementTheme>((string)value) : ThemeDefault;
         value = StorageGetRawValue(RunAtStartupSettingsKey);

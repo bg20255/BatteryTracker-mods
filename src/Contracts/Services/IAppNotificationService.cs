@@ -8,6 +8,8 @@ public interface IAppNotificationService
 
     bool Show(string payload);
 
+    bool ShowDischargeReminder(string payload);
+
     NameValueCollection ParseArguments(string arguments);
 
     void Unregister();

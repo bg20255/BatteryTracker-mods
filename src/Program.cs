@@ -4,6 +4,8 @@ using CommunityToolkit.WinUI;
 using Microsoft.UI.Dispatching;
 using Microsoft.Windows.AppLifecycle;
 using Microsoft.Windows.AppNotifications;
+using Microsoft.Windows.ApplicationModel.DynamicDependency;
+using BatteryTracker.Helpers;
 
 namespace BatteryTracker
 {
@@ -17,6 +19,12 @@ namespace BatteryTracker
         [STAThread]
         static void Main()
         {
+            // Ensure Windows App SDK is initialized before any WinAppSDK types are used (unpackaged mode).
+            if (!RuntimeHelper.IsMSIX)
+            {
+                InitializeWindowsAppSdk();
+            }
+
             WinRT.ComWrappersSupport.InitializeComWrappers();
 
             bool isRedirect = DecideRedirection();
@@ -29,6 +37,26 @@ namespace BatteryTracker
                     SynchronizationContext.SetSynchronizationContext(context);
                     _ = new App();
                 });
+            }
+        }
+
+        private static void InitializeWindowsAppSdk()
+        {
+            // WinAppSDK 1.5 minimum runtime version (5001.159.55.0)
+            var minVersion = new Microsoft.Windows.ApplicationModel.DynamicDependency.PackageVersion
+            {
+                Major = 5001,
+                Minor = 159,
+                Build = 55,
+                Revision = 0
+            };
+
+            const uint majorMinorVersion = 0x00010005; // 1.5
+            const string versionTag = "";
+
+            if (!Bootstrap.TryInitialize(majorMinorVersion, versionTag, minVersion, Bootstrap.InitializeOptions.OnNoMatch_ShowUI, out int hr))
+            {
+                Environment.Exit(hr);
             }
         }
 

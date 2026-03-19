@@ -16,9 +16,10 @@
             VerticalAlignment="Top"
             Canvas.ZIndex="1" ColumnDefinitions="24, *" IsHitTestVisible="True">
             <BitmapIcon
+                x:Name="AppTitleBarIcon"
                 Grid.Column="0"
                 Width="24"
-                ShowAsMonochrome="False" UriSource="ms-appx:///Assets/Logo.ico" />
+                ShowAsMonochrome="False" UriSource="ms-appx:///Assets/logo.ico" />
             <TextBlock
                 x:Name="AppTitleBarText"
                 Grid.Column="1"

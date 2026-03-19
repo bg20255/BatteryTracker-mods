@@ -12,7 +12,7 @@ Show remaining battery percentage on Windows taskbar.
 - **Navigation cleanup:** Settings/About behave like tabs, clearing the back stack when switching—only About leaves a single history entry so the back arrow lights up.  
 - **Title bar polish & startup control:** In unpackaged runs we load `Assets/logo.ico` for the custom title bar icon, and auto-start defaults to **off** so users opt in intentionally.
 
-<img style="width:60%;" src=Assets/showcase5.png />
+<img style="width:60%;" src=Assets/showcase7-mods.png />
 <table>
 	<tr>
 		<td><img src=Assets/showcase2.png border=0></td>

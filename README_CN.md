@@ -5,4 +5,4 @@
 3. **导航不再无限压栈：** 在设置和关于之间切换默认清空回退栈，只有从关于返回设置时才会让返回箭头亮起；反复点击不会堆栈。  
 4. **托盘图标和开机自启：** 非商店运行时标题栏图标由本地 `Assets/logo.ico` 加载，默认不开启“开机自启”，必须手动切换。
 
-<img style="width:60%;" src=Assets/showcase5.png />
+<img style="width:60%;" src=Assets/showcase7-mods.png />
